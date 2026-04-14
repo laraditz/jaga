@@ -2,6 +2,8 @@
 
 namespace Laraditz\Jaga\Traits;
 
+use Illuminate\Contracts\Auth\Authenticatable;
+
 trait HasOwnership
 {
     public function getOwnerKeyAttribute(): string
@@ -27,5 +29,13 @@ trait HasOwnership
     public function getOwnerModel(): string
     {
         return property_exists($this, 'ownerModel') ? $this->ownerModel : config('jaga.ownership.owner_model');
+    }
+
+    public function checkOwnership(Authenticatable $user, string $routeName): bool
+    {
+        $ownerModel = $this->getOwnerModel();
+
+        return ($user instanceof $ownerModel)
+            && (string) $this->{$this->getOwnerKey()} === (string) $user->getKey();
     }
 }
