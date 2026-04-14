@@ -15,10 +15,11 @@ class SyncCommand extends Command
 
     public function handle(CacheManager $cache): int
     {
-        $routes      = Route::getRoutes();
-        $syncedNames = [];
-        $newCount    = 0;
+        $routes       = Route::getRoutes();
+        $syncedNames  = [];
+        $newCount     = 0;
         $updatedCount = 0;
+        $collisions   = [];
 
         foreach ($routes as $route) {
             $name = $route->getName();
@@ -40,13 +41,25 @@ class SyncCommand extends Command
                     'uri'                 => $uri,
                     'description'         => DescriptionGenerator::generate($name),
                     'is_auto_description' => true,
+                    'group'               => DescriptionGenerator::group($name),
                 ]);
                 $newCount++;
             } else {
+                // Skip updating custom permissions — record collision for warning
+                if ($existing->is_custom) {
+                    $collisions[] = $name;
+                    continue;
+                }
+
                 $update = ['methods' => $methods, 'uri' => $uri, 'deleted_at' => null];
 
                 if ($existing->is_auto_description) {
                     $update['description'] = DescriptionGenerator::generate($name);
+                }
+
+                // Only set group if it has never been set
+                if ($existing->group === null) {
+                    $update['group'] = DescriptionGenerator::group($name);
                 }
 
                 $existing->fill($update)->save();
@@ -54,8 +67,10 @@ class SyncCommand extends Command
             }
         }
 
-        // Soft-delete stale permissions
-        $deprecated = Permission::whereNotIn('name', $syncedNames)->get();
+        // Soft-delete stale non-custom permissions
+        $deprecated = Permission::whereNotIn('name', $syncedNames)
+            ->where('is_custom', false)
+            ->get();
         foreach ($deprecated as $perm) {
             $perm->delete();
         }
@@ -64,6 +79,11 @@ class SyncCommand extends Command
             ['New', 'Updated', 'Deprecated'],
             [[$newCount, $updatedCount, $deprecated->count()]]
         );
+
+        // Emit collision warnings after the loop
+        foreach ($collisions as $collision) {
+            $this->warn("Custom permission \"{$collision}\" conflicts with a route of the same name. The custom permission was not modified.");
+        }
 
         $cache->flushAll();
         $this->info('Permissions synced and caches cleared.');

@@ -65,3 +65,78 @@ it('stores multiple http methods as json for multi-method routes', function () {
     $perm = Permission::where('name', 'multi.endpoint')->first();
     expect($perm->methods)->toContain('GET')->toContain('POST');
 });
+
+it('auto-sets group on new permissions from route name', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->value('group'))->toBe('Posts');
+    expect(Permission::where('name', 'posts.store')->value('group'))->toBe('Posts');
+});
+
+it('sets group on existing permissions where group is null', function () {
+    Permission::create([
+        'name'    => 'posts.index',
+        'methods' => ['GET'],
+        'uri'     => 'posts',
+        'group'   => null,
+        'is_auto_description' => true,
+    ]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->value('group'))->toBe('Posts');
+});
+
+it('does not overwrite group on existing permissions that already have a value', function () {
+    Permission::create([
+        'name'    => 'posts.index',
+        'methods' => ['GET'],
+        'uri'     => 'posts',
+        'group'   => 'Custom Group',
+        'is_auto_description' => true,
+    ]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->value('group'))->toBe('Custom Group');
+});
+
+it('does not soft-delete custom permissions during sync', function () {
+    Permission::create([
+        'name'      => 'export-reports',
+        'methods'   => [],
+        'uri'       => '',
+        'is_custom' => true,
+    ]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'export-reports')->exists())->toBeTrue();
+});
+
+it('does not overwrite methods/uri/description on a custom permission whose name collides with a route', function () {
+    Permission::create([
+        'name'        => 'posts.index',
+        'methods'     => [],
+        'uri'         => '',
+        'description' => 'My custom desc',
+        'is_custom'   => true,
+        'is_auto_description' => false,
+    ]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    $perm = Permission::where('name', 'posts.index')->first();
+    expect($perm->methods)->toBe([]);
+    expect($perm->uri)->toBe('');
+    expect($perm->description)->toBe('My custom desc');
+});
+
+it('emits a warning when a custom permission name collides with a route name', function () {
+    Permission::create([
+        'name'      => 'posts.index',
+        'methods'   => [],
+        'uri'       => '',
+        'is_custom' => true,
+    ]);
+
+    $this->artisan('jaga:sync')
+        ->assertSuccessful()
+        ->expectsOutputToContain('Custom permission "posts.index" conflicts with a route of the same name');
+});
