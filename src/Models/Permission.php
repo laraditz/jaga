@@ -18,6 +18,7 @@ class Permission extends Model
             'methods'             => 'array',
             'is_auto_description' => 'boolean',
             'is_custom'           => 'boolean',
+            'is_public'           => 'boolean',
         ];
     }
 

@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->string('description')->nullable();
             $table->boolean('is_auto_description')->default(true);
             $table->boolean('is_custom')->default(false);
+            $table->boolean('is_public')->default(false);
             $table->string('group')->nullable();
             $table->softDeletes();
             $table->timestamps();
