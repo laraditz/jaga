@@ -11,7 +11,8 @@ class DefineCommand extends Command
     protected $signature = 'jaga:define
                             {name : The permission name (e.g. export-reports)}
                             {--description= : Human-readable description}
-                            {--group= : Optional category for admin UI grouping}';
+                            {--group= : Optional category for admin UI grouping}
+                            {--public : Allow guest access without authentication}';
 
     protected $description = 'Create or update a custom permission not tied to any route';
 
@@ -39,6 +40,10 @@ class DefineCommand extends Command
                 $update['group'] = $this->option('group');
             }
 
+            if ($this->option('public')) {
+                $update['is_public'] = true;
+            }
+
             $existing->fill($update)->save();
         } else {
             // Create new custom permission
@@ -49,6 +54,7 @@ class DefineCommand extends Command
                 'description'         => $this->option('description') ?? $name,
                 'is_auto_description' => false,
                 'is_custom'           => true,
+                'is_public'           => (bool) $this->option('public'),
                 'group'               => $this->option('group'),
             ]);
         }
