@@ -9,26 +9,36 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Laraditz\Jaga\Jaga;
+use Laraditz\Jaga\Models\Permission;
+use Laraditz\Jaga\Support\CacheManager;
 use Symfony\Component\HttpFoundation\Response;
 
 class JagaMiddleware
 {
-    public function __construct(private Jaga $jaga) {}
+    public function __construct(
+        private Jaga $jaga,
+        private CacheManager $cache,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
-        $guard = $this->resolveGuard($request);
-        $user  = Auth::guard($guard)->user();
-
-        if (! $user) {
-            abort(401);
-        }
-
         $routeName = $request->route()?->getName();
 
         // Unnamed routes are never restricted
         if (! $routeName) {
             return $next($request);
+        }
+
+        // Public routes bypass auth and permission checks entirely
+        if ($this->isPublicRoute($routeName)) {
+            return $next($request);
+        }
+
+        $guard = $this->resolveGuard($request);
+        $user  = Auth::guard($guard)->user();
+
+        if (! $user) {
+            abort(401);
         }
 
         // Force implicit model binding so route parameters are resolved to model instances
@@ -82,6 +92,18 @@ class JagaMiddleware
         }
 
         return $next($request);
+    }
+
+    private function isPublicRoute(string $routeName): bool
+    {
+        $public = $this->cache->rememberPublicRoutes(
+            fn () => Permission::where('is_public', true)
+                ->whereNull('deleted_at')
+                ->pluck('name')
+                ->toArray()
+        );
+
+        return in_array($routeName, $public);
     }
 
     private function mapToPolicyMethod(string $routeName, object $policy): ?string

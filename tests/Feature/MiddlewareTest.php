@@ -68,3 +68,24 @@ it('returns 200 when user owns the resource', function () {
     Route::middleware(['auth', 'jaga'])->put('/api/posts/{post}', fn (TestPost $post) => 'ok')->name('posts.update');
     $this->actingAs($this->user)->put("/api/posts/{$post->id}")->assertSuccessful();
 });
+
+it('allows guest through a route marked is_public', function () {
+    $this->perm->update(['is_public' => true]);
+
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->get('/api/posts')->assertSuccessful();
+});
+
+it('allows authenticated user through a route marked is_public without a permission check', function () {
+    $this->perm->update(['is_public' => true]);
+    // user has NO explicit permission for posts.index
+
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->actingAs($this->user)->get('/api/posts')->assertSuccessful();
+});
+
+it('returns 401 for guest on a route with is_public false', function () {
+    // is_public defaults to false
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->get('/api/posts')->assertUnauthorized();
+});
