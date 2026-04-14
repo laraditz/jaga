@@ -4,6 +4,8 @@ namespace Laraditz\Jaga\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
+use Laraditz\Jaga\Middleware\JagaMiddleware;
 use Laraditz\Jaga\Models\Permission;
 use Laraditz\Jaga\Support\CacheManager;
 use Laraditz\Jaga\Support\DescriptionGenerator;
@@ -21,10 +23,21 @@ class SyncCommand extends Command
         $updatedCount = 0;
         $collisions   = [];
 
+        // Resolve all aliases that point to JagaMiddleware (e.g. 'jaga')
+        $jagaAliases = array_keys(array_filter(
+            app('router')->getMiddleware(),
+            fn ($class) => $class === JagaMiddleware::class
+        ));
+
         foreach ($routes as $route) {
             $name = $route->getName();
 
             if (! $name || $this->isExcluded($name, $route->uri())) {
+                continue;
+            }
+
+            // Only sync routes protected by jaga middleware
+            if (! $this->hasJagaMiddleware($route, $jagaAliases)) {
                 continue;
             }
 
@@ -41,6 +54,7 @@ class SyncCommand extends Command
                     'uri'                 => $uri,
                     'description'         => DescriptionGenerator::generate($name),
                     'is_auto_description' => true,
+                    'is_public'           => ! $this->hasAuthMiddleware($route),
                     'group'               => DescriptionGenerator::group($name),
                 ]);
                 $newCount++;
@@ -104,5 +118,20 @@ class SyncCommand extends Command
             }
         }
         return false;
+    }
+
+    private function hasJagaMiddleware(\Illuminate\Routing\Route $route, array $jagaAliases): bool
+    {
+        return collect($route->gatherMiddleware())
+            ->map(fn ($m) => Str::before($m, ':'))
+            ->intersect([...$jagaAliases, JagaMiddleware::class])
+            ->isNotEmpty();
+    }
+
+    private function hasAuthMiddleware(\Illuminate\Routing\Route $route): bool
+    {
+        return collect($route->gatherMiddleware())
+            ->map(fn ($m) => Str::before($m, ':'))
+            ->contains('auth');
     }
 }

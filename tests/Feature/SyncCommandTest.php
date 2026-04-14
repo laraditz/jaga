@@ -4,8 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Laraditz\Jaga\Models\Permission;
 
 beforeEach(function () {
-    Route::get('/posts', fn () => '')->name('posts.index');
-    Route::post('/posts', fn () => '')->name('posts.store');
+    Route::middleware('jaga')->get('/posts', fn () => '')->name('posts.index');
+    Route::middleware('jaga')->post('/posts', fn () => '')->name('posts.store');
 });
 
 it('creates permissions for named routes', function () {
@@ -59,7 +59,7 @@ it('restores a previously soft-deleted permission when its route reappears', fun
 });
 
 it('stores multiple http methods as json for multi-method routes', function () {
-    Route::match(['GET', 'POST'], '/multi', fn () => '')->name('multi.endpoint');
+    Route::middleware('jaga')->match(['GET', 'POST'], '/multi', fn () => '')->name('multi.endpoint');
     $this->artisan('jaga:sync')->assertSuccessful();
 
     $perm = Permission::where('name', 'multi.endpoint')->first();
@@ -139,4 +139,37 @@ it('emits a warning when a custom permission name collides with a route name', f
     $this->artisan('jaga:sync')
         ->assertSuccessful()
         ->expectsOutputToContain('Custom permission "posts.index" conflicts with a route of the same name');
+});
+
+it('does not sync routes without jaga middleware', function () {
+    Route::get('/public-page', fn () => '')->name('public.page');
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'public.page')->exists())->toBeFalse();
+});
+
+it('sets is_public true for route with jaga but no auth middleware', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'posts.store')->value('is_public'))->toBeTrue();
+});
+
+it('sets is_public false for route with jaga + auth middleware', function () {
+    Route::middleware(['jaga', 'auth'])->get('/dashboard', fn () => '')->name('dashboard');
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'dashboard')->value('is_public'))->toBeFalse();
+});
+
+it('does not overwrite is_public on re-sync', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    // Admin manually changes is_public
+    Permission::where('name', 'posts.index')->update(['is_public' => false]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->value('is_public'))->toBeFalse();
+});
+
+it('does not soft-delete routes without jaga middleware (they were never synced)', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::withTrashed()->where('name', 'public.page')->exists())->toBeFalse();
 });
