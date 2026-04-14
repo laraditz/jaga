@@ -186,6 +186,32 @@ class TeamPost extends Model
 
 On routes with multiple bound models (e.g. `{team}/{post}`), ownership is checked on **every** model where `$ownershipRequired = true`. All checks must pass (AND logic).
 
+#### Custom ownership logic
+
+Override `checkOwnership()` on the model for custom conditions. The `$routeName` is available so you can branch per route without needing separate methods.
+
+```php
+use Illuminate\Contracts\Auth\Authenticatable;
+
+class Post extends Model
+{
+    use HasOwnership;
+
+    public function checkOwnership(Authenticatable $user, string $routeName): bool
+    {
+        // Custom condition for a specific route
+        if ($routeName === 'posts.publish') {
+            return $this->author_id === $user->getKey() && $user->can_publish;
+        }
+
+        // Fall back to default (ownerKey match + instanceof ownerModel) for all other routes
+        return parent::checkOwnership($user, $routeName);
+    }
+}
+```
+
+When no policy or model override is registered, the default implementation checks that `$user` is an instance of the configured owner model **and** that `$model->{ownerKey}` matches `$user->getKey()`.
+
 ---
 
 ## Middleware
@@ -203,14 +229,16 @@ Route::middleware(['auth', 'jaga'])->group(...);  // uses web guard
 
 ```
 Request arrives
-  → Resolve guard from auth middleware (e.g. auth:sanctum → sanctum)
+  → Route is public (is_public = true)? → allow
   → Not authenticated? → 401
   → Route has no name? → allow (unnamed routes are never restricted)
   → Jaga::policy registered for this route? → run callback → deny if false, allow if true
   → Check permission (direct grants, then roles, exact then wildcard)
   → No match? → 403
   → Has route model parameters with HasOwnership?
-      → Wrong owner? → 403
+      → Laravel Policy registered for the model? → run policy method → deny if false
+      → Jaga::ownershipPolicy registered for this route? → run callback → deny if false
+      → Call $model->checkOwnership($user, $routeName) → deny if false
   → Allow
 ```
 
@@ -241,6 +269,35 @@ Jaga::policy(['posts.update', 'posts.destroy'], function ($user, $request) {
 ```
 
 The callback receives `($user, $request)` and must return `bool`. It runs inside the `jaga` middleware after authentication but before any permission or ownership check.
+
+---
+
+## Custom Ownership Policies
+
+Register a callback for a named route to override ownership checking without replacing the permission check. Unlike `Jaga::policy()`, the permission check still runs normally — only the ownership step is replaced.
+
+```php
+// AppServiceProvider::boot()
+
+// Custom condition for a single route
+Jaga::ownershipPolicy('posts.update', function ($user, Post $post) {
+    return $post->user_id === $user->id || $post->team_id === $user->team_id;
+});
+
+// Same callback for multiple routes
+Jaga::ownershipPolicy(['posts.update', 'posts.destroy'], function ($user, Post $post) {
+    return $post->user_id === $user->id;
+});
+```
+
+The callback receives `($user, $model)` and must return `bool`. It takes priority over the model's `checkOwnership()` method.
+
+**Priority order for the ownership step:**
+
+```
+1. Jaga::ownershipPolicy('route.name', fn($user, $model) => bool)   ← highest priority
+2. $model->checkOwnership(Authenticatable $user, string $routeName)  ← default or model override
+```
 
 ---
 
