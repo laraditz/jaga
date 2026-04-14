@@ -61,16 +61,42 @@ class CacheManager
         if ($this->tagsSupported) {
             Cache::tags(['jaga'])->flush();
             Cache::forget($this->prefix('permissions'));
+            Cache::forget($this->prefix('public_routes'));
             return;
         }
 
         Cache::forget($this->prefix('permissions'));
+        Cache::forget($this->prefix('public_routes'));
 
         $keys = Cache::get($this->prefix('user_keys'), []);
         foreach ($keys as $key) {
             Cache::forget($key);
         }
         Cache::forget($this->prefix('user_keys'));
+    }
+
+    public function rememberPublicRoutes(callable $callback): array
+    {
+        if (! config('jaga.cache.enabled')) {
+            return $callback();
+        }
+
+        $key    = $this->prefix('public_routes');
+        $cached = Cache::get($key);
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $routes = $callback();
+        Cache::put($key, $routes, config('jaga.cache.ttl', 3600));
+
+        return $routes;
+    }
+
+    public function flushPublicRoutes(): void
+    {
+        Cache::forget($this->prefix('public_routes'));
     }
 
     public function flushRoleMembers(int $roleId): void
