@@ -10,8 +10,8 @@ return [
     ],
 
     'sync' => [
-        'exclude_uri_prefixes'  => ['telescope', '_debugbar', 'horizon'],
-        'exclude_name_prefixes' => ['telescope.', 'debugbar.', 'horizon.'],
+        'exclude_uri_prefixes'  => ['telescope', '_debugbar', 'horizon', '_ignition', 'storage'],
+        'exclude_name_prefixes' => ['telescope.', 'debugbar.', 'horizon.', 'ignition.', 'storage.'],
     ],
 
     'ownership' => [
