@@ -83,10 +83,17 @@ class JagaMiddleware
                 continue;
             }
 
-            $ownerKey   = $value->getOwnerKey();
-            $ownerModel = $value->getOwnerModel();
+            // 1. External override — registered via Jaga::ownershipPolicy()
+            $ownershipPolicy = $this->jaga->getOwnershipPolicyFor($routeName);
+            if ($ownershipPolicy !== null) {
+                if (! $ownershipPolicy($user, $value)) {
+                    abort(403);
+                }
+                continue;
+            }
 
-            if (! ($user instanceof $ownerModel) || (string) $value->{$ownerKey} !== (string) $user->getKey()) {
+            // 2. Model method — default trait implementation or model override
+            if (! $value->checkOwnership($user, $routeName)) {
                 abort(403);
             }
         }
