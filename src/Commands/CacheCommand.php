@@ -20,6 +20,19 @@ class CacheCommand extends Command
             config('jaga.cache.ttl', 3600)
         );
         $this->info("Cached {$permissions->count()} permission(s).");
+
+        $public = Permission::where('is_public', true)
+            ->whereNull('deleted_at')
+            ->pluck('name')
+            ->toArray();
+
+        Cache::put(
+            config('jaga.cache.key_prefix', 'jaga').'.public_routes',
+            $public,
+            config('jaga.cache.ttl', 3600)
+        );
+        $this->info('Cached '.count($public).' public route(s).');
+
         return self::SUCCESS;
     }
 }
