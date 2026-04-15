@@ -33,7 +33,7 @@ class DescriptionGenerator
         $segments = explode('.', $routeName);
 
         if (count($segments) < 2) {
-            return $routeName;
+            return Str::apa($routeName);
         }
 
         $action = array_pop($segments);

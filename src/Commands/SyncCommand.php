@@ -3,6 +3,7 @@
 namespace Laraditz\Jaga\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Laraditz\Jaga\Middleware\JagaMiddleware;
@@ -119,7 +120,7 @@ class SyncCommand extends Command
     {
         $permissions = config('jaga.permissions', []);
 
-        return \Arr::get($permissions, $name, []);
+        return Arr::get($permissions, $name, []);
     }
 
     private function isExcluded(string $name, string $uri): bool
