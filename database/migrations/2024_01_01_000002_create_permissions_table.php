@@ -17,8 +17,8 @@ return new class extends Migration {
             $table->boolean('is_custom')->default(false);
             $table->boolean('is_public')->default(false);
             $table->string('group')->nullable();
-            $table->softDeletes();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
