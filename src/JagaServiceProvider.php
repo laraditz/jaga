@@ -29,7 +29,7 @@ class JagaServiceProvider extends ServiceProvider
             __DIR__.'/../config/jaga.php' => config_path('jaga.php'),
         ], 'jaga-config');
 
-        $this->publishes([
+        $this->publishesMigrations([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'jaga-migrations');
 
