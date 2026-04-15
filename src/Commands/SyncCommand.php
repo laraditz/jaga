@@ -17,50 +17,55 @@ class SyncCommand extends Command
 
     public function handle(CacheManager $cache): int
     {
-        $routes       = Route::getRoutes();
-        $syncedNames  = [];
-        $newCount     = 0;
+        $routes = Route::getRoutes();
+        $syncedNames = [];
+        $newCount = 0;
         $updatedCount = 0;
-        $collisions   = [];
+        $collisions = [];
 
         // Resolve all aliases that point to JagaMiddleware (e.g. 'jaga')
         $jagaAliases = array_keys(array_filter(
             app('router')->getMiddleware(),
-            fn ($class) => $class === JagaMiddleware::class
+            fn($class) => $class === JagaMiddleware::class
         ));
 
         foreach ($routes as $route) {
             $name = $route->getName();
 
-            if (! $name || $this->isExcluded($name, $route->uri())) {
+            if (!$name || $this->isExcluded($name, $route->uri())) {
                 continue;
             }
 
             // Only sync routes protected by jaga middleware
-            if (! $this->hasJagaMiddleware($route, $jagaAliases)) {
+            if (!$this->hasJagaMiddleware($route, $jagaAliases)) {
                 continue;
             }
 
             $syncedNames[] = $name;
             $methods = $route->methods();
-            $uri     = $route->uri();
+            $uri = $route->uri();
 
             $existing = Permission::withTrashed()->where('name', $name)->first();
 
-            if (! $existing) {
-                $overrides   = $this->configOverridesFor($name);
+            if ($name == 'invitations.accept') {
+                $overrides = $this->configOverridesFor($name);
+                dd($name, $overrides);
+            }
+
+            if (!$existing) {
+                $overrides = $this->configOverridesFor($name);
                 $description = $overrides['description'] ?? DescriptionGenerator::generate($name);
-                $isAutoDesc  = ! isset($overrides['description']);
-                $group       = $overrides['group'] ?? DescriptionGenerator::group($name);
+                $isAutoDesc = !isset($overrides['description']);
+                $group = $overrides['group'] ?? DescriptionGenerator::group($name);
 
                 Permission::create([
-                    'name'                => $name,
-                    'methods'             => $methods,
-                    'uri'                 => $uri,
-                    'description'         => $description,
+                    'name' => $name,
+                    'methods' => $methods,
+                    'uri' => $uri,
+                    'description' => $description,
                     'is_auto_description' => $isAutoDesc,
-                    'is_public'           => ! $this->hasAuthMiddleware($route),
-                    'group'               => $group,
+                    'is_public' => !$this->hasAuthMiddleware($route),
+                    'group' => $group,
                 ]);
                 $newCount++;
             } else {
@@ -71,10 +76,10 @@ class SyncCommand extends Command
                 }
 
                 $overrides = $this->configOverridesFor($name);
-                $update    = ['methods' => $methods, 'uri' => $uri, 'deleted_at' => null];
+                $update = ['methods' => $methods, 'uri' => $uri, 'deleted_at' => null];
 
                 if (isset($overrides['description'])) {
-                    $update['description']         = $overrides['description'];
+                    $update['description'] = $overrides['description'];
                     $update['is_auto_description'] = false;
                 } elseif ($existing->is_auto_description) {
                     $update['description'] = DescriptionGenerator::generate($name);
@@ -117,7 +122,9 @@ class SyncCommand extends Command
 
     private function configOverridesFor(string $name): array
     {
-        return config('jaga.permissions.' . $name, []);
+        $permissions = config('jaga.permissions', []);
+
+        return \Arr::get($permissions, $name, []);
     }
 
     private function isExcluded(string $name, string $uri): bool
@@ -138,7 +145,7 @@ class SyncCommand extends Command
     private function hasJagaMiddleware(\Illuminate\Routing\Route $route, array $jagaAliases): bool
     {
         return collect($route->gatherMiddleware())
-            ->map(fn ($m) => Str::before($m, ':'))
+            ->map(fn($m) => Str::before($m, ':'))
             ->intersect([...$jagaAliases, JagaMiddleware::class])
             ->isNotEmpty();
     }
@@ -146,7 +153,7 @@ class SyncCommand extends Command
     private function hasAuthMiddleware(\Illuminate\Routing\Route $route): bool
     {
         return collect($route->gatherMiddleware())
-            ->map(fn ($m) => Str::before($m, ':'))
+            ->map(fn($m) => Str::before($m, ':'))
             ->contains('auth');
     }
 }
