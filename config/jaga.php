@@ -10,20 +10,20 @@ return [
     ],
 
     'sync' => [
-        'exclude_uri_prefixes'  => ['telescope', '_debugbar', 'horizon', '_ignition', 'storage'],
-        'exclude_name_prefixes' => ['telescope.', 'debugbar.', 'horizon.', 'ignition.', 'storage.'],
+        'exclude_uri_prefixes' => ['telescope', '_debugbar', 'horizon', '_ignition', 'storage', 'sanctum', 'livewire-', '_boost'],
+        'exclude_name_prefixes' => ['telescope.', 'debugbar.', 'horizon.', 'ignition.', 'storage.', 'sanctum.', 'livewire.', 'boost.'],
     ],
 
     'ownership' => [
-        'owner_key'   => 'user_id',
+        'owner_key' => 'user_id',
         'owner_model' => \App\Models\User::class,
     ],
 
     'tables' => [
-        'roles'            => 'roles',
-        'permissions'      => 'permissions',
-        'model_role'       => 'model_role',
-        'role_permission'  => 'role_permission',
+        'roles' => 'roles',
+        'permissions' => 'permissions',
+        'model_role' => 'model_role',
+        'role_permission' => 'role_permission',
         'model_permission' => 'model_permission',
     ],
 ];
