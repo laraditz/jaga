@@ -65,3 +65,39 @@ class TestPost extends Model
     protected $table = 'posts';
     protected $guarded = [];
 }
+
+class TestPostPolicy
+{
+    public function view(TestUser $user, TestPost $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+
+    public function update(TestUser $user, TestPost $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+
+    public function delete(TestUser $user, TestPost $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+
+    public function publish(TestUser $user, TestPost $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+}
+
+class TestSuperAdminPostPolicy
+{
+    public function before(TestUser $user): ?bool
+    {
+        return $user->hasRole('superadmin') ? true : null;
+    }
+
+    public function view(TestUser $user, TestPost $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+}
