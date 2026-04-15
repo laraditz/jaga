@@ -1,4 +1,8 @@
-# Jaga
+# Laravel Jaga
+
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/laraditz/jaga.svg?style=flat-square)](https://packagist.org/packages/laraditz/jaga)
+[![Total Downloads](https://img.shields.io/packagist/dt/laraditz/jaga.svg?style=flat-square)](https://packagist.org/packages/laraditz/jaga)
+[![License](https://img.shields.io/packagist/l/laraditz/jaga?style=flat-square)](./LICENSE.md)
 
 Route-based RBAC for Laravel with auto-synced permissions, wildcard support, and ownership control.
 
@@ -131,6 +135,7 @@ $role->assignWildcard('*');             // covers everything including custom pe
 Roles and individual users can hold exact permissions (`posts.update`) or wildcard permissions (`posts.*`, `*`). Wildcards are resolved at check time.
 
 **Resolution order:**
+
 1. Exact match — `posts.update`
 2. Resource wildcard — `posts.*`
 3. Global wildcard — `*`
@@ -145,17 +150,17 @@ Only routes inside a `jaga` middleware group are protected. All other routes rem
 
 ### `HasRoles` — on authenticatable models
 
-| Method | Description |
-|--------|-------------|
-| `assignRole(string\|int\|Role\|array $role)` | Assign one or more roles by slug, ID, model, or array of any |
-| `removeRole(string\|int\|Role\|array $role)` | Remove one or more roles |
-| `grantPermission(string\|int\|Permission $perm)` | Grant a direct exact permission |
-| `revokePermission(string\|int\|Permission $perm)` | Revoke a direct exact permission |
-| `grantWildcard(string $pattern)` | Grant a direct wildcard (e.g. `posts.*`) |
-| `revokeWildcard(string $pattern)` | Revoke a wildcard |
-| `hasPermission(string $routeName)` | Authoritative access check (uses cache) |
-| `roles()` | Eloquent `MorphToMany` relationship |
-| `permissions()` | Returns exact `Permission` models for display only — **not for access checks** |
+| Method                                            | Description                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `assignRole(string\|int\|Role\|array $role)`      | Assign one or more roles by slug, ID, model, or array of any                   |
+| `removeRole(string\|int\|Role\|array $role)`      | Remove one or more roles                                                       |
+| `grantPermission(string\|int\|Permission $perm)`  | Grant a direct exact permission                                                |
+| `revokePermission(string\|int\|Permission $perm)` | Revoke a direct exact permission                                               |
+| `grantWildcard(string $pattern)`                  | Grant a direct wildcard (e.g. `posts.*`)                                       |
+| `revokeWildcard(string $pattern)`                 | Revoke a wildcard                                                              |
+| `hasPermission(string $routeName)`                | Authoritative access check (uses cache)                                        |
+| `roles()`                                         | Eloquent `MorphToMany` relationship                                            |
+| `permissions()`                                   | Returns exact `Permission` models for display only — **not for access checks** |
 
 ### `HasOwnership` — on resource models
 
@@ -303,13 +308,13 @@ The callback receives `($user, $model)` and must return `bool`. It takes priorit
 
 ## Artisan Commands
 
-| Command | Description |
-|---------|-------------|
-| `jaga:sync` | Sync named routes → permissions table, flush all caches |
-| `jaga:define` | Create or update a custom permission not tied to any route |
-| `jaga:cache` | Pre-warm the `jaga.permissions` list cache |
-| `jaga:clear` | Flush all jaga caches |
-| `jaga:clean` | Force-delete soft-deleted route-based permissions and orphaned pivot rows |
+| Command       | Description                                                               |
+| ------------- | ------------------------------------------------------------------------- |
+| `jaga:sync`   | Sync named routes → permissions table, flush all caches                   |
+| `jaga:define` | Create or update a custom permission not tied to any route                |
+| `jaga:cache`  | Pre-warm the `jaga.permissions` list cache                                |
+| `jaga:clear`  | Flush all jaga caches                                                     |
+| `jaga:clean`  | Force-delete soft-deleted route-based permissions and orphaned pivot rows |
 
 **Recommended deployment workflow:**
 
@@ -325,13 +330,13 @@ php artisan jaga:clean   # (optional) permanently remove stale route-based permi
 
 `jaga:sync` generates human-readable descriptions for standard RESTful route names:
 
-| Route name | Description |
-|------------|-------------|
-| `posts.index` | List all posts |
-| `posts.show` | View a post |
-| `posts.store` | Create a post |
-| `posts.update` | Update a post |
-| `posts.destroy` | Delete a post |
+| Route name          | Description    |
+| ------------------- | -------------- |
+| `posts.index`       | List all posts |
+| `posts.show`        | View a post    |
+| `posts.store`       | Create a post  |
+| `posts.update`      | Update a post  |
+| `posts.destroy`     | Delete a post  |
 | `admin.users.index` | List all users |
 
 Descriptions are only overwritten if `is_auto_description` is `true`. Once you manually edit a description in the database and set `is_auto_description = false`, `jaga:sync` will never touch it again.
@@ -342,9 +347,9 @@ Descriptions are only overwritten if `is_auto_description` is `true`. Once you m
 
 Jaga caches resolved permissions per user. Cache tags are used when available (Redis, Memcached); a key-index fallback is used for non-tagged drivers (file, database, array).
 
-| Key | Contents |
-|-----|----------|
-| `jaga.permissions` | Full permission collection |
+| Key                                 | Contents                           |
+| ----------------------------------- | ---------------------------------- |
+| `jaga.permissions`                  | Full permission collection         |
 | `jaga.user.{type}.{id}.permissions` | Resolved permissions for one model |
 
 Default TTL: 3600 seconds (configurable).
@@ -501,6 +506,7 @@ Gate::allows('export-reports'); // true if user has the custom permission
 **How it works:** Jaga registers a `Gate::before()` hook that returns `true` when the user has the Jaga permission (exact, wildcard, or via role), and `null` otherwise. Returning `null` means Jaga steps aside — any `Gate::define()` or Policy you register will still run normally for that ability.
 
 This means Jaga and Laravel Policies coexist cleanly:
+
 - Jaga grants access → Gate short-circuits with `true`
 - Jaga denies → Gate falls through to your `Gate::define()` or Policy
 - Non-Jaga abilities (e.g. `update-settings`) are completely unaffected
@@ -546,15 +552,15 @@ Gate::policy(Post::class, PostPolicy::class);
 
 That's all. The `jaga` middleware will call the right Policy method for each request:
 
-| Route name | Policy method called |
-|------------|----------------------|
-| `posts.show` | `view($user, $post)` |
-| `posts.edit` | `update($user, $post)` |
-| `posts.update` | `update($user, $post)` |
-| `posts.destroy` | `delete($user, $post)` |
-| `posts.restore` | `restore($user, $post)` |
-| `posts.publish` | `publish($user, $post)` *(custom — matched by method name)* |
-| `posts.stats` | *(no match — check skipped)* |
+| Route name      | Policy method called                                        |
+| --------------- | ----------------------------------------------------------- |
+| `posts.show`    | `view($user, $post)`                                        |
+| `posts.edit`    | `update($user, $post)`                                      |
+| `posts.update`  | `update($user, $post)`                                      |
+| `posts.destroy` | `delete($user, $post)`                                      |
+| `posts.restore` | `restore($user, $post)`                                     |
+| `posts.publish` | `publish($user, $post)` _(custom — matched by method name)_ |
+| `posts.stats`   | _(no match — check skipped)_                                |
 
 **Policy takes precedence over `HasOwnership`.** If a Policy is registered for a model, Jaga uses it and ignores `HasOwnership`. If no Policy is registered, Jaga falls back to `HasOwnership`.
 
