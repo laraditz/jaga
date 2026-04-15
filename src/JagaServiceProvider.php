@@ -17,8 +17,8 @@ class JagaServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/jaga.php', 'jaga');
-        $this->app->singleton('jaga', fn () => new \Laraditz\Jaga\Jaga());
+        $this->mergeConfigFrom(__DIR__ . '/../config/jaga.php', 'jaga');
+        $this->app->singleton('jaga', fn() => new \Laraditz\Jaga\Jaga());
         $this->app->alias('jaga', \Laraditz\Jaga\Jaga::class);
         $this->app->singleton(\Laraditz\Jaga\Support\CacheManager::class);
     }
@@ -26,19 +26,17 @@ class JagaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__.'/../config/jaga.php' => config_path('jaga.php'),
+            __DIR__ . '/../config/jaga.php' => config_path('jaga.php'),
         ], 'jaga-config');
 
         $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
+            __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], 'jaga-migrations');
-
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         $this->app['router']->aliasMiddleware('jaga', JagaMiddleware::class);
 
         Gate::before(function ($user, string $ability) {
-            if (! method_exists($user, 'hasPermission')) {
+            if (!method_exists($user, 'hasPermission')) {
                 return null;
             }
 
