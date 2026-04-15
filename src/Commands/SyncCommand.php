@@ -48,14 +48,19 @@ class SyncCommand extends Command
             $existing = Permission::withTrashed()->where('name', $name)->first();
 
             if (! $existing) {
+                $overrides   = $this->configOverridesFor($name);
+                $description = $overrides['description'] ?? DescriptionGenerator::generate($name);
+                $isAutoDesc  = ! isset($overrides['description']);
+                $group       = $overrides['group'] ?? DescriptionGenerator::group($name);
+
                 Permission::create([
                     'name'                => $name,
                     'methods'             => $methods,
                     'uri'                 => $uri,
-                    'description'         => DescriptionGenerator::generate($name),
-                    'is_auto_description' => true,
+                    'description'         => $description,
+                    'is_auto_description' => $isAutoDesc,
                     'is_public'           => ! $this->hasAuthMiddleware($route),
-                    'group'               => DescriptionGenerator::group($name),
+                    'group'               => $group,
                 ]);
                 $newCount++;
             } else {
@@ -65,14 +70,19 @@ class SyncCommand extends Command
                     continue;
                 }
 
-                $update = ['methods' => $methods, 'uri' => $uri, 'deleted_at' => null];
+                $overrides = $this->configOverridesFor($name);
+                $update    = ['methods' => $methods, 'uri' => $uri, 'deleted_at' => null];
 
-                if ($existing->is_auto_description) {
+                if (isset($overrides['description'])) {
+                    $update['description']         = $overrides['description'];
+                    $update['is_auto_description'] = false;
+                } elseif ($existing->is_auto_description) {
                     $update['description'] = DescriptionGenerator::generate($name);
                 }
 
-                // Only set group if it has never been set
-                if ($existing->group === null) {
+                if (isset($overrides['group'])) {
+                    $update['group'] = $overrides['group'];
+                } elseif ($existing->group === null) {
                     $update['group'] = DescriptionGenerator::group($name);
                 }
 
@@ -103,6 +113,11 @@ class SyncCommand extends Command
         $this->info('Permissions synced and caches cleared.');
 
         return self::SUCCESS;
+    }
+
+    private function configOverridesFor(string $name): array
+    {
+        return config('jaga.permissions.' . $name, []);
     }
 
     private function isExcluded(string $name, string $uri): bool

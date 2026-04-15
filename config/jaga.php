@@ -19,6 +19,14 @@ return [
         'owner_model' => \App\Models\User::class,
     ],
 
+    'permissions' => [
+        // 'route.name' => ['description' => '...', 'group' => '...'],
+        'invitations.accept' => [
+            'description' => 'Accept an invitation to join a team',
+            'group' => 'Teams',
+        ]
+    ],
+
     'tables' => [
         'roles' => 'roles',
         'permissions' => 'permissions',

@@ -173,3 +173,83 @@ it('does not soft-delete routes without jaga middleware (they were never synced)
     $this->artisan('jaga:sync')->assertSuccessful();
     expect(Permission::withTrashed()->where('name', 'public.page')->exists())->toBeFalse();
 });
+
+// Config override tests
+it('config override sets description and marks is_auto_description false on new permission', function () {
+    config(['jaga.permissions.posts.index' => ['description' => 'Pinned description']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    $perm = Permission::where('name', 'posts.index')->first();
+    expect($perm->description)->toBe('Pinned description')
+        ->and($perm->is_auto_description)->toBeFalse();
+});
+
+it('config override sets group on new permission', function () {
+    config(['jaga.permissions.posts.index' => ['group' => 'Content']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->value('group'))->toBe('Content');
+});
+
+it('omitting description from config override auto-generates it', function () {
+    config(['jaga.permissions.posts.index' => ['group' => 'Content']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    $perm = Permission::where('name', 'posts.index')->first();
+    expect($perm->description)->toBe('List all posts')
+        ->and($perm->is_auto_description)->toBeTrue();
+});
+
+it('config override applies description on re-sync even when is_auto_description was already false', function () {
+    Permission::create([
+        'name'                => 'posts.index',
+        'methods'             => ['GET'],
+        'uri'                 => 'posts',
+        'description'         => 'Old manual desc',
+        'is_auto_description' => false,
+    ]);
+
+    config(['jaga.permissions.posts.index' => ['description' => 'Config pinned']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->value('description'))->toBe('Config pinned');
+});
+
+it('config override applies group on re-sync even when group was already set', function () {
+    Permission::create([
+        'name'    => 'posts.index',
+        'methods' => ['GET'],
+        'uri'     => 'posts',
+        'group'   => 'Old Group',
+        'is_auto_description' => true,
+    ]);
+
+    config(['jaga.permissions.posts.index' => ['group' => 'Overridden Group']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->value('group'))->toBe('Overridden Group');
+});
+
+it('partial override (only description) leaves group managed by existing logic', function () {
+    config(['jaga.permissions.posts.index' => ['description' => 'Only desc pinned']]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    $perm = Permission::where('name', 'posts.index')->first();
+    expect($perm->description)->toBe('Only desc pinned')
+        ->and($perm->group)->toBe('Posts'); // auto-generated
+});
+
+it('route with no config entry behaves identically to current sync behaviour', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    $perm = Permission::where('name', 'posts.store')->first();
+    expect($perm->description)->toBe('Create a post')
+        ->and($perm->is_auto_description)->toBeTrue()
+        ->and($perm->group)->toBe('Posts');
+});
