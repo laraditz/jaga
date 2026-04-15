@@ -47,11 +47,6 @@ class SyncCommand extends Command
 
             $existing = Permission::withTrashed()->where('name', $name)->first();
 
-            if ($name == 'invitations.accept') {
-                $overrides = $this->configOverridesFor($name);
-                dd($name, $overrides);
-            }
-
             if (!$existing) {
                 $overrides = $this->configOverridesFor($name);
                 $description = $overrides['description'] ?? DescriptionGenerator::generate($name);
