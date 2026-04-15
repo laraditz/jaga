@@ -7,11 +7,12 @@ use Illuminate\Support\Str;
 class DescriptionGenerator
 {
     private static array $templates = [
-        'index'   => 'List all :resource',
-        'show'    => 'View a :resource',
-        'store'   => 'Create a :resource',
-        'update'  => 'Update a :resource',
+        'index' => 'List all :resource',
+        'show' => 'View a :resource',
+        'store' => 'Create a :resource',
+        'update' => 'Update a :resource',
         'destroy' => 'Delete a :resource',
+        'edit' => 'Edit :resource',
     ];
 
     public static function group(string $routeName): ?string
@@ -35,11 +36,11 @@ class DescriptionGenerator
             return $routeName;
         }
 
-        $action       = array_pop($segments);
-        $rawResource  = array_pop($segments);
-        $resource     = $action === 'index' ? $rawResource : Str::singular($rawResource);
+        $action = array_pop($segments);
+        $rawResource = array_pop($segments);
+        $resource = $action === 'index' ? $rawResource : Str::singular($rawResource);
 
-        if (! isset(self::$templates[$action])) {
+        if (!isset(self::$templates[$action])) {
             return $routeName;
         }
 
