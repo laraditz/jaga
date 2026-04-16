@@ -61,12 +61,12 @@ class CacheManager
         if ($this->tagsSupported) {
             Cache::tags(['jaga'])->flush();
             Cache::forget($this->prefix('permissions'));
-            Cache::forget($this->prefix('public_routes'));
+            Cache::forget($this->prefix('access_levels'));
             return;
         }
 
         Cache::forget($this->prefix('permissions'));
-        Cache::forget($this->prefix('public_routes'));
+        Cache::forget($this->prefix('access_levels'));
 
         $keys = Cache::get($this->prefix('user_keys'), []);
         foreach ($keys as $key) {
@@ -75,28 +75,28 @@ class CacheManager
         Cache::forget($this->prefix('user_keys'));
     }
 
-    public function rememberPublicRoutes(callable $callback): array
+    public function rememberAccessLevels(callable $callback): array
     {
         if (! config('jaga.cache.enabled')) {
             return $callback();
         }
 
-        $key    = $this->prefix('public_routes');
+        $key    = $this->prefix('access_levels');
         $cached = Cache::get($key);
 
         if ($cached !== null) {
             return $cached;
         }
 
-        $routes = $callback();
-        Cache::put($key, $routes, config('jaga.cache.ttl', 3600));
+        $levels = $callback();
+        Cache::put($key, $levels, config('jaga.cache.ttl', 3600));
 
-        return $routes;
+        return $levels;
     }
 
-    public function flushPublicRoutes(): void
+    public function flushAccessLevels(): void
     {
-        Cache::forget($this->prefix('public_routes'));
+        Cache::forget($this->prefix('access_levels'));
     }
 
     public function flushRoleMembers(int $roleId): void

@@ -73,7 +73,23 @@ Route::middleware(['auth:sanctum', 'jaga'])->group(function () {
 php artisan jaga:sync
 ```
 
-**4. Assign roles to users:**
+**4. Create roles and assign permissions:**
+
+```php
+use Laraditz\Jaga\Models\Role;
+use Laraditz\Jaga\Models\Permission;
+
+$editor = Role::create(['name' => 'Editor', 'slug' => 'editor', 'guard_name' => 'web']);
+
+// Assign specific permissions
+$editor->assignPermission('posts.index');
+$editor->assignPermission('posts.store');
+
+// Or use a wildcard to cover all posts.* at once
+$editor->assignWildcard('posts.*');
+```
+
+**5. Assign roles to users:**
 
 ```php
 // Single role
@@ -100,6 +116,7 @@ Not every permission maps to a route. Use `jaga:define` to create permissions fo
 ```bash
 php artisan jaga:define export-reports --description="Export reports" --group="Reporting"
 php artisan jaga:define manage-billing --description="Manage billing" --group="Billing"
+php artisan jaga:define webhook-receive --public   # sets access_level=public (no auth required)
 ```
 
 Or create them programmatically in a seeder or migration:
@@ -130,6 +147,65 @@ $role->assignWildcard('*');             // covers everything including custom pe
 
 `jaga:sync` will never soft-delete a custom permission, and `jaga:clean` will never force-delete one — even if it is soft-deleted. They are permanently protected by the `is_custom` flag.
 
+### Roles
+
+Roles are the primary way to group permissions and assign them to users. Create roles directly via Eloquent or in a seeder:
+
+```php
+use Laraditz\Jaga\Models\Role;
+
+$editor = Role::create([
+    'name'       => 'Editor',
+    'slug'       => 'editor',       // used for assignment — $user->assignRole('editor')
+    'guard_name' => 'web',
+]);
+
+$admin = Role::create([
+    'name'       => 'Admin',
+    'slug'       => 'admin',
+    'guard_name' => 'web',
+]);
+```
+
+Assign permissions to a role by name or model:
+
+```php
+// By permission name (resolves from DB)
+$editor->assignPermission('posts.index');
+$editor->assignPermission('posts.show');
+$editor->assignPermission('posts.store');
+
+// By Permission model
+$perm = Permission::where('name', 'posts.update')->first();
+$editor->assignPermission($perm);
+
+// Wildcard — covers all posts.* permissions (including ones added later)
+$admin->assignWildcard('posts.*');
+
+// Global wildcard — covers everything
+$admin->assignWildcard('*');
+```
+
+Assign roles to users:
+
+```php
+// By slug
+$user->assignRole('editor');
+
+// Multiple at once
+$user->assignRole(['editor', 'moderator']);
+
+// Remove a role
+$user->removeRole('editor');
+```
+
+Check access:
+
+```php
+$user->hasRole('editor');           // true/false
+$user->hasPermission('posts.store'); // true if user has it via any role or direct grant
+```
+
 ### Wildcard Permissions
 
 Roles and individual users can hold exact permissions (`posts.update`) or wildcard permissions (`posts.*`, `*`). Wildcards are resolved at check time.
@@ -139,6 +215,32 @@ Roles and individual users can hold exact permissions (`posts.update`) or wildca
 1. Exact match — `posts.update`
 2. Resource wildcard — `posts.*`
 3. Global wildcard — `*`
+
+### Access Levels
+
+Every permission has an `access_level` that controls how the middleware gates the route:
+
+| Value | Behaviour |
+|-------|-----------|
+| `restricted` | Default. User must be authenticated **and** have the permission (via role or direct grant). |
+| `auth` | Any authenticated user is allowed through — no permission check. Useful for profile pages, dashboards, and other routes that every logged-in user should reach. |
+| `public` | No authentication required. Anyone can access the route. |
+
+`jaga:sync` auto-detects the initial value:
+- Routes with an `auth` middleware → `restricted`
+- Routes without an `auth` middleware → `public`
+
+You can pin a value via config so it is applied (or re-applied) on every sync:
+
+```php
+// config/jaga.php
+'permissions' => [
+    'dashboard' => ['access_level' => 'auth'],
+    'home'      => ['access_level' => 'public'],
+],
+```
+
+When no config pin is set, re-syncing **preserves** whatever value is in the database — so manually setting `access_level` to `auth` from an admin UI will survive subsequent syncs.
 
 ### Opt-In Middleware
 
@@ -234,8 +336,9 @@ Route::middleware(['auth', 'jaga'])->group(...);  // uses web guard
 
 ```
 Request arrives
-  → Route is public (is_public = true)? → allow
+  → Permission access_level = public? → allow (no auth required)
   → Not authenticated? → 401
+  → Permission access_level = auth? → allow (any authenticated user, no permission check)
   → Route has no name? → allow (unnamed routes are never restricted)
   → Jaga::policy registered for this route? → run callback → deny if false, allow if true
   → Check permission (direct grants, then roles, exact then wildcard)
@@ -308,13 +411,14 @@ The callback receives `($user, $model)` and must return `bool`. It takes priorit
 
 ## Artisan Commands
 
-| Command       | Description                                                               |
-| ------------- | ------------------------------------------------------------------------- |
-| `jaga:sync`   | Sync named routes → permissions table, flush all caches                   |
-| `jaga:define` | Create or update a custom permission not tied to any route                |
-| `jaga:cache`  | Pre-warm the `jaga.permissions` list cache                                |
-| `jaga:clear`  | Flush all jaga caches                                                     |
-| `jaga:clean`  | Force-delete soft-deleted route-based permissions and orphaned pivot rows |
+| Command        | Description                                                               |
+| -------------- | ------------------------------------------------------------------------- |
+| `jaga:sync`    | Sync named routes → permissions table, flush all caches                   |
+| `jaga:define`  | Create or update a custom permission not tied to any route                |
+| `jaga:seeder`  | Export current roles, permissions, and assignments to a PHP seeder file   |
+| `jaga:cache`   | Pre-warm the `jaga.permissions` list cache                                |
+| `jaga:clear`   | Flush all jaga caches                                                     |
+| `jaga:clean`   | Force-delete soft-deleted route-based permissions and orphaned pivot rows |
 
 **Recommended deployment workflow:**
 
@@ -323,6 +427,15 @@ php artisan jaga:sync    # sync new/changed routes, soft-delete removed ones
 php artisan jaga:cache   # warm the permissions cache
 php artisan jaga:clean   # (optional) permanently remove stale route-based permissions after review
 ```
+
+**Export current state as a seeder:**
+
+```bash
+php artisan jaga:seeder              # write to the path configured in jaga.seeder.path
+php artisan jaga:seeder --force      # overwrite if the file already exists
+```
+
+The generated seeder truncates all three tables and re-inserts the current data, making it safe to run multiple times. Share it with teammates or include it in your deployment pipeline so every environment starts with identical roles and permissions.
 
 ---
 
@@ -347,12 +460,15 @@ Descriptions are only overwritten if `is_auto_description` is `true`. Once you m
 
 Jaga caches resolved permissions per user. Cache tags are used when available (Redis, Memcached); a key-index fallback is used for non-tagged drivers (file, database, array).
 
-| Key                                 | Contents                           |
-| ----------------------------------- | ---------------------------------- |
-| `jaga.permissions`                  | Full permission collection         |
-| `jaga.user.{type}.{id}.permissions` | Resolved permissions for one model |
+| Key                                 | Contents                                          |
+| ----------------------------------- | ------------------------------------------------- |
+| `jaga.permissions`                  | Full permission collection                        |
+| `jaga.access_levels`                | Map of `name → access_level` used by middleware   |
+| `jaga.user.{type}.{id}.permissions` | Resolved permissions for one model                |
 
 Default TTL: 3600 seconds (configurable).
+
+**Cache invalidation** happens automatically via the built-in `PermissionObserver` — any time a `Permission` record is created, updated, soft-deleted, restored, or force-deleted (through any path: admin UI, Tinker, seeder, Artisan commands), all Jaga caches are flushed immediately. You do not need to run `jaga:clear` manually after permission changes.
 
 **In tests**, use the provided trait to flush caches between test cases:
 

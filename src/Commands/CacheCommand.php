@@ -4,6 +4,7 @@ namespace Laraditz\Jaga\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Laraditz\Jaga\Models\Permission;
 
 class CacheCommand extends Command
@@ -21,17 +22,17 @@ class CacheCommand extends Command
         );
         $this->info("Cached {$permissions->count()} permission(s).");
 
-        $public = Permission::where('is_public', true)
+        $levels = DB::table(config('jaga.tables.permissions'))
             ->whereNull('deleted_at')
-            ->pluck('name')
+            ->pluck('access_level', 'name')
             ->toArray();
 
         Cache::put(
-            config('jaga.cache.key_prefix', 'jaga').'.public_routes',
-            $public,
+            config('jaga.cache.key_prefix', 'jaga').'.access_levels',
+            $levels,
             config('jaga.cache.ttl', 3600)
         );
-        $this->info('Cached '.count($public).' public route(s).');
+        $this->info('Cached access levels for '.count($levels).' permission(s).');
 
         return self::SUCCESS;
     }

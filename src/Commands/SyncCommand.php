@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Laraditz\Jaga\Enums\AccessLevel;
 use Laraditz\Jaga\Middleware\JagaMiddleware;
 use Laraditz\Jaga\Models\Permission;
 use Laraditz\Jaga\Support\CacheManager;
@@ -53,6 +54,8 @@ class SyncCommand extends Command
                 $description = $overrides['description'] ?? DescriptionGenerator::generate($name);
                 $isAutoDesc = !isset($overrides['description']);
                 $group = $overrides['group'] ?? DescriptionGenerator::group($name);
+                $accessLevel = $overrides['access_level']
+                    ?? ($this->hasAuthMiddleware($route) ? AccessLevel::Restricted->value : AccessLevel::Public->value);
 
                 Permission::create([
                     'name' => $name,
@@ -60,7 +63,7 @@ class SyncCommand extends Command
                     'uri' => $uri,
                     'description' => $description,
                     'is_auto_description' => $isAutoDesc,
-                    'is_public' => !$this->hasAuthMiddleware($route),
+                    'access_level' => $accessLevel,
                     'group' => $group,
                 ]);
                 $newCount++;
@@ -86,6 +89,11 @@ class SyncCommand extends Command
                 } elseif ($existing->group === null) {
                     $update['group'] = DescriptionGenerator::group($name);
                 }
+
+                if (isset($overrides['access_level'])) {
+                    $update['access_level'] = $overrides['access_level'];
+                }
+                // No else: preserve existing access_level when no config override is set
 
                 $existing->fill($update)->save();
                 $updatedCount++;

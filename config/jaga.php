@@ -27,6 +27,10 @@ return [
         ]
     ],
 
+    'seeder' => [
+        'path' => null, // null = database_path('seeders/JagaSeeder.php')
+    ],
+
     'tables' => [
         'roles' => 'roles',
         'permissions' => 'permissions',
