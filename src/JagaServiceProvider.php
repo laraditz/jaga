@@ -10,6 +10,7 @@ use Laraditz\Jaga\Commands\CacheCommand;
 use Laraditz\Jaga\Commands\CleanCommand;
 use Laraditz\Jaga\Commands\ClearCommand;
 use Laraditz\Jaga\Commands\DefineCommand;
+use Laraditz\Jaga\Commands\SeederCommand;
 use Laraditz\Jaga\Commands\SyncCommand;
 use Laraditz\Jaga\Middleware\JagaMiddleware;
 
@@ -60,6 +61,7 @@ class JagaServiceProvider extends ServiceProvider
                 CacheCommand::class,
                 ClearCommand::class,
                 DefineCommand::class,
+                SeederCommand::class,
             ]);
         }
     }
