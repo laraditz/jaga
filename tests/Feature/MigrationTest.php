@@ -20,6 +20,6 @@ it('permissions table has the expected columns', function () {
         ->and(Schema::hasColumn('permissions', 'group'))->toBeTrue();
 });
 
-it('permissions table has is_public column', function () {
-    expect(Schema::hasColumn('permissions', 'is_public'))->toBeTrue();
+it('permissions table has access_level column', function () {
+    expect(Schema::hasColumn('permissions', 'access_level'))->toBeTrue();
 });

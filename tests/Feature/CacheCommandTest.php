@@ -20,17 +20,17 @@ it('jaga:clear flushes all jaga caches', function () {
     expect(Cache::get('jaga.permissions'))->toBeNull();
 });
 
-it('jaga:cache warms the public routes cache', function () {
+it('jaga:cache warms the access levels cache', function () {
     Permission::create([
-        'name'      => 'home',
-        'methods'   => ['GET'],
-        'uri'       => '/',
-        'is_public' => true,
+        'name'         => 'home',
+        'methods'      => ['GET'],
+        'uri'          => '/',
+        'access_level' => 'public',
     ]);
     Cache::flush();
 
     $this->artisan('jaga:cache')->assertSuccessful();
 
-    $key = config('jaga.cache.key_prefix', 'jaga').'.public_routes';
-    expect(Cache::get($key))->toBe(['home']);
+    $key = config('jaga.cache.key_prefix', 'jaga').'.access_levels';
+    expect(Cache::get($key))->toBe(['home' => 'public']);
 });

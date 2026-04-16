@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Laraditz\Jaga\Enums\AccessLevel;
 use Laraditz\Jaga\Models\Permission;
 
 beforeEach(function () {
@@ -147,26 +148,26 @@ it('does not sync routes without jaga middleware', function () {
     expect(Permission::where('name', 'public.page')->exists())->toBeFalse();
 });
 
-it('sets is_public true for route with jaga but no auth middleware', function () {
+it('sets access_level to public for route with jaga but no auth middleware', function () {
     $this->artisan('jaga:sync')->assertSuccessful();
-    expect(Permission::where('name', 'posts.index')->value('is_public'))->toBeTrue();
-    expect(Permission::where('name', 'posts.store')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Public);
+    expect(Permission::where('name', 'posts.store')->first()->access_level)->toBe(AccessLevel::Public);
 });
 
-it('sets is_public false for route with jaga + auth middleware', function () {
+it('sets access_level to restricted for route with jaga + auth middleware', function () {
     Route::middleware(['jaga', 'auth'])->get('/dashboard', fn () => '')->name('dashboard');
     $this->artisan('jaga:sync')->assertSuccessful();
-    expect(Permission::where('name', 'dashboard')->value('is_public'))->toBeFalse();
+    expect(Permission::where('name', 'dashboard')->first()->access_level)->toBe(AccessLevel::Restricted);
 });
 
-it('does not overwrite is_public on re-sync', function () {
+it('does not overwrite access_level on re-sync when no config override is set', function () {
     $this->artisan('jaga:sync')->assertSuccessful();
 
-    // Admin manually changes is_public
-    Permission::where('name', 'posts.index')->update(['is_public' => false]);
+    // Admin manually sets access_level to 'auth' (neither auto-detected value)
+    Permission::where('name', 'posts.index')->update(['access_level' => AccessLevel::Auth]);
 
     $this->artisan('jaga:sync')->assertSuccessful();
-    expect(Permission::where('name', 'posts.index')->value('is_public'))->toBeFalse();
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Auth);
 });
 
 it('does not soft-delete routes without jaga middleware (they were never synced)', function () {
@@ -243,6 +244,38 @@ it('partial override (only description) leaves group managed by existing logic',
     $perm = Permission::where('name', 'posts.index')->first();
     expect($perm->description)->toBe('Only desc pinned')
         ->and($perm->group)->toBe('Posts'); // auto-generated
+});
+
+it('config override sets access_level to auth on new permission', function () {
+    config(['jaga.permissions.posts.index' => ['access_level' => AccessLevel::Auth->value]]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Auth);
+});
+
+it('config override applies access_level on re-sync even when value was already set', function () {
+    $this->artisan('jaga:sync')->assertSuccessful();
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Public);
+
+    config(['jaga.permissions.posts.index' => ['access_level' => AccessLevel::Auth->value]]);
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Auth);
+});
+
+it('access_level auth in DB is preserved on re-sync when no config override is present', function () {
+    Permission::create([
+        'name'                => 'posts.index',
+        'methods'             => ['GET'],
+        'uri'                 => 'posts',
+        'access_level'        => AccessLevel::Auth,
+        'is_auto_description' => true,
+    ]);
+
+    $this->artisan('jaga:sync')->assertSuccessful();
+
+    expect(Permission::where('name', 'posts.index')->first()->access_level)->toBe(AccessLevel::Auth);
 });
 
 it('route with no config entry behaves identically to current sync behaviour', function () {

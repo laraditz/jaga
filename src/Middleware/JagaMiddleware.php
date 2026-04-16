@@ -8,8 +8,8 @@ use Illuminate\Routing\ImplicitRouteBinding;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Laraditz\Jaga\Enums\AccessLevel;
 use Laraditz\Jaga\Jaga;
-use Laraditz\Jaga\Models\Permission;
 use Laraditz\Jaga\Support\CacheManager;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,27 +18,33 @@ class JagaMiddleware
     public function __construct(
         private Jaga $jaga,
         private CacheManager $cache,
-    ) {}
+    ) {
+    }
 
     public function handle(Request $request, Closure $next): Response
     {
         $routeName = $request->route()?->getName();
 
         // Unnamed routes are never restricted
-        if (! $routeName) {
+        if (!$routeName) {
             return $next($request);
         }
 
-        // Public routes bypass auth and permission checks entirely
-        if ($this->isPublicRoute($routeName)) {
+        $accessLevel = $this->getAccessLevel($routeName);
+
+        if ($accessLevel === AccessLevel::Public) {
             return $next($request);
         }
 
         $guard = $this->resolveGuard($request);
-        $user  = Auth::guard($guard)->user();
+        $user = Auth::guard($guard)->user();
 
-        if (! $user) {
+        if (!$user) {
             abort(401);
+        }
+
+        if ($accessLevel === AccessLevel::Auth) {
+            return $next($request);
         }
 
         // Force implicit model binding so route parameters are resolved to model instances
@@ -52,7 +58,7 @@ class JagaMiddleware
         // Custom policy: completely replaces the built-in permission + ownership checks
         $policy = $this->jaga->getPolicyFor($routeName);
         if ($policy !== null) {
-            if (! $policy($user, $request)) {
+            if (!$policy($user, $request)) {
                 abort(403);
             }
 
@@ -60,13 +66,13 @@ class JagaMiddleware
         }
 
         // Built-in permission check
-        if (! $user->hasPermission($routeName)) {
+        if (!$user->hasPermission($routeName)) {
             abort(403);
         }
 
         // Model-level check: Policy (when registered) takes precedence over HasOwnership
         foreach ($request->route()->parameters() as $value) {
-            if (! is_object($value)) {
+            if (!is_object($value)) {
                 continue;
             }
 
@@ -79,21 +85,21 @@ class JagaMiddleware
                 continue;
             }
 
-            if (! method_exists($value, 'isOwnershipRequired') || ! $value->isOwnershipRequired()) {
+            if (!method_exists($value, 'isOwnershipRequired') || !$value->isOwnershipRequired()) {
                 continue;
             }
 
             // 1. External override — registered via Jaga::ownershipPolicy()
             $ownershipPolicy = $this->jaga->getOwnershipPolicyFor($routeName);
             if ($ownershipPolicy !== null) {
-                if (! $ownershipPolicy($user, $value)) {
+                if (!$ownershipPolicy($user, $value)) {
                     abort(403);
                 }
                 continue;
             }
 
             // 2. Model method — default trait implementation or model override
-            if (! $value->checkOwnership($user, $routeName)) {
+            if (!$value->checkOwnership($user, $routeName)) {
                 abort(403);
             }
         }
@@ -101,16 +107,16 @@ class JagaMiddleware
         return $next($request);
     }
 
-    private function isPublicRoute(string $routeName): bool
+    private function getAccessLevel(string $routeName): AccessLevel
     {
-        $public = $this->cache->rememberPublicRoutes(
-            fn () => Permission::where('is_public', true)
+        $levels = $this->cache->rememberAccessLevels(
+            fn() => \Illuminate\Support\Facades\DB::table(config('jaga.tables.permissions'))
                 ->whereNull('deleted_at')
-                ->pluck('name')
+                ->pluck('access_level', 'name')
                 ->toArray()
         );
 
-        return in_array($routeName, $public);
+        return AccessLevel::tryFrom($levels[$routeName] ?? '') ?? AccessLevel::Restricted;
     }
 
     private function mapToPolicyMethod(string $routeName, object $policy): ?string
@@ -119,12 +125,12 @@ class JagaMiddleware
 
         // Standard RESTful mapping
         $mapped = match ($action) {
-            'show'           => 'view',
+            'show' => 'view',
             'edit', 'update' => 'update',
-            'destroy'        => 'delete',
-            'restore'        => 'restore',
-            'forceDelete'    => 'forceDelete',
-            default          => null,
+            'destroy' => 'delete',
+            'restore' => 'restore',
+            'forceDelete' => 'forceDelete',
+            default => null,
         };
 
         if ($mapped !== null) {

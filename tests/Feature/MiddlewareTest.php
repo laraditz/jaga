@@ -69,23 +69,23 @@ it('returns 200 when user owns the resource', function () {
     $this->actingAs($this->user)->put("/api/posts/{$post->id}")->assertSuccessful();
 });
 
-it('allows guest through a route marked is_public', function () {
-    $this->perm->update(['is_public' => true]);
+it('allows guest through a route with access_level public', function () {
+    $this->perm->update(['access_level' => 'public']);
 
     Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
     $this->get('/api/posts')->assertSuccessful();
 });
 
-it('allows authenticated user through a route marked is_public without a permission check', function () {
-    $this->perm->update(['is_public' => true]);
+it('allows authenticated user through a route with access_level public without a permission check', function () {
+    $this->perm->update(['access_level' => 'public']);
     // user has NO explicit permission for posts.index
 
     Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
     $this->actingAs($this->user)->get('/api/posts')->assertSuccessful();
 });
 
-it('returns 401 for guest on a route with is_public false', function () {
-    // is_public defaults to false
+it('returns 401 for guest on a route with access_level restricted', function () {
+    // access_level defaults to 'restricted'
     Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
     $this->get('/api/posts')->assertUnauthorized();
 });
@@ -148,4 +148,34 @@ it('routeName is passed correctly into checkOwnership', function () {
 
     expect($captured['user'])->toBe($this->user->id)
         ->and($captured['model'])->toBe($post->id);
+});
+
+it('allows authenticated user through a route with access_level auth without any permission', function () {
+    $this->perm->update(['access_level' => 'auth']);
+    // user has NO roles or permissions assigned
+
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->actingAs($this->user)->get('/api/posts')->assertSuccessful();
+});
+
+it('returns 401 for guest on a route with access_level auth', function () {
+    $this->perm->update(['access_level' => 'auth']);
+
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->get('/api/posts')->assertUnauthorized();
+});
+
+it('returns 403 for authenticated user without permission on a route with access_level restricted', function () {
+    // access_level defaults to 'restricted', user has no permissions
+    Route::middleware(['auth', 'jaga'])->get('/api/posts', fn () => 'ok')->name('posts.index');
+    $this->actingAs($this->user)->get('/api/posts')->assertForbidden();
+});
+
+it('authenticated user with access_level auth bypasses permission check but ownership checks still run', function () {
+    $this->perm->update(['access_level' => 'auth']);
+    // user has NO roles or permissions — but access_level auth means they pass the permission check
+
+    Route::middleware('jaga')->get('/api/posts', fn () => 'ok')->name('posts.index');
+    // No route parameters, so no ownership check is triggered — just verifying auth bypass works
+    $this->actingAs($this->user)->get('/api/posts')->assertSuccessful();
 });

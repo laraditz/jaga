@@ -41,7 +41,7 @@ class DefineCommand extends Command
             }
 
             if ($this->option('public')) {
-                $update['is_public'] = true;
+                $update['access_level'] = 'public';
             }
 
             $existing->fill($update)->save();
@@ -54,7 +54,7 @@ class DefineCommand extends Command
                 'description'         => $this->option('description') ?? $name,
                 'is_auto_description' => false,
                 'is_custom'           => true,
-                'is_public'           => (bool) $this->option('public'),
+                'access_level'        => $this->option('public') ? 'public' : 'restricted',
                 'group'               => $this->option('group'),
             ]);
         }

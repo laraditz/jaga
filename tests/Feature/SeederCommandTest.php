@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\DB;
+use Laraditz\Jaga\Enums\AccessLevel;
 
 beforeEach(function () {
     // Use a temp directory for all generated seeder files in this suite
@@ -54,7 +55,7 @@ it('generated file contains correct roles, permissions, and role_permission data
         'description'         => 'List all posts',
         'is_auto_description' => 1,
         'is_custom'           => 0,
-        'is_public'           => 1,
+        'access_level'        => AccessLevel::Public->value,
         'group'               => 'Posts',
         'created_at'          => now(),
         'updated_at'          => now(),

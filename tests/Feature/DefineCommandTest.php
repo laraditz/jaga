@@ -1,5 +1,6 @@
 <?php
 
+use Laraditz\Jaga\Enums\AccessLevel;
 use Laraditz\Jaga\Models\Permission;
 
 it('creates a custom permission with correct field values', function () {
@@ -92,32 +93,32 @@ it('restores a soft-deleted custom permission', function () {
     expect(Permission::where('name', 'export-reports')->exists())->toBeTrue();
 });
 
-it('creates custom permission with is_public true when --public is passed', function () {
+it('creates custom permission with access_level public when --public is passed', function () {
     $this->artisan('jaga:define', ['name' => 'webhook-receive', '--public' => true])
         ->assertSuccessful();
 
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Public);
 });
 
-it('creates custom permission with is_public false when --public is not passed', function () {
+it('creates custom permission with access_level restricted when --public is not passed', function () {
     $this->artisan('jaga:define', ['name' => 'webhook-receive'])
         ->assertSuccessful();
 
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeFalse();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Restricted);
 });
 
-it('updates is_public to true when --public is passed on re-run', function () {
+it('updates access_level to public when --public is passed on re-run', function () {
     $this->artisan('jaga:define', ['name' => 'webhook-receive'])->assertSuccessful();
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeFalse();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Restricted);
 
     $this->artisan('jaga:define', ['name' => 'webhook-receive', '--public' => true])->assertSuccessful();
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Public);
 });
 
-it('leaves is_public unchanged when --public is not passed on re-run', function () {
+it('leaves access_level unchanged when --public is not passed on re-run', function () {
     $this->artisan('jaga:define', ['name' => 'webhook-receive', '--public' => true])->assertSuccessful();
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Public);
 
     $this->artisan('jaga:define', ['name' => 'webhook-receive'])->assertSuccessful();
-    expect(Permission::where('name', 'webhook-receive')->value('is_public'))->toBeTrue();
+    expect(Permission::where('name', 'webhook-receive')->first()->access_level)->toBe(AccessLevel::Public);
 });
