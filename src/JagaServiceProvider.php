@@ -14,6 +14,8 @@ use Laraditz\Jaga\Commands\DefineCommand;
 use Laraditz\Jaga\Commands\SeederCommand;
 use Laraditz\Jaga\Commands\SyncCommand;
 use Laraditz\Jaga\Middleware\JagaMiddleware;
+use Laraditz\Jaga\Models\Permission;
+use Laraditz\Jaga\Observers\PermissionObserver;
 
 class JagaServiceProvider extends ServiceProvider
 {
@@ -27,6 +29,8 @@ class JagaServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Permission::observe(PermissionObserver::class);
+
         $this->publishes([
             __DIR__ . '/../config/jaga.php' => config_path('jaga.php'),
         ], 'jaga-config');
