@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Laraditz\Jaga\Commands\CacheCommand;
 use Laraditz\Jaga\Commands\CleanCommand;
 use Laraditz\Jaga\Commands\ClearCommand;
@@ -30,9 +31,7 @@ class JagaServiceProvider extends ServiceProvider
             __DIR__ . '/../config/jaga.php' => config_path('jaga.php'),
         ], 'jaga-config');
 
-        $this->publishesMigrations([
-            __DIR__ . '/../database/migrations' => database_path('migrations'),
-        ], 'jaga-migrations');
+        $this->publishMigrations();
 
         $this->app['router']->aliasMiddleware('jaga', JagaMiddleware::class);
 
@@ -63,6 +62,33 @@ class JagaServiceProvider extends ServiceProvider
                 DefineCommand::class,
                 SeederCommand::class,
             ]);
+        }
+    }
+
+    protected function publishMigrations()
+    {
+        $databasePath = __DIR__ . '/../database/migrations/';
+        $migrationPath = database_path('migrations/');
+
+        $files = array_diff(scandir($databasePath), array('.', '..'));
+        $date = date('Y_m_d');
+        $time = date('His');
+
+        $migrationFiles = collect($files)
+            ->mapWithKeys(function (string $file) use ($databasePath, $migrationPath, $date, &$time) {
+                $filename = Str::replace(Str::substr($file, 0, 17), '', $file);
+
+                $found = glob($migrationPath . '*' . $filename);
+                $time = date("His", strtotime($time) + 1); // ensure in order
+    
+                return !!count($found) === true ? []
+                    : [
+                        $databasePath . $file => $migrationPath . $date . '_' . $time . $filename,
+                    ];
+            });
+
+        if ($migrationFiles->isNotEmpty()) {
+            $this->publishes($migrationFiles->toArray(), 'jaga-migrations');
         }
     }
 }
