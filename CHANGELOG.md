@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-04-16
+
+### Added
+
+- `access_level` column on `permissions` table — replaces `is_public` boolean with a three-state enum: `restricted` (default, explicit permission required), `auth` (any authenticated user), `public` (no auth required)
+- `AccessLevel` PHP enum (`Laraditz\Jaga\Enums\AccessLevel`) backing the column with cases `Restricted`, `Auth`, and `Public`
+- `jaga:sync` now auto-detects `access_level` from route middleware: routes with `auth` middleware → `restricted`, routes without → `public`; existing DB value is preserved on re-sync unless a config override is set
+- `jaga:define --public` now sets `access_level = public` instead of the removed `is_public` flag
+- Config override support for `access_level` per route via `jaga.permissions.{name}.access_level`
+- `PermissionObserver` — automatically flushes all Jaga caches whenever a `Permission` record is created, updated, soft-deleted, restored, or force-deleted through any path (admin UI, Tinker, seeder, commands); pivot cleanup on delete is also handled by the observer
+- `jaga:seeder` command — exports current roles, permissions, and role-permission assignments to a self-contained PHP seeder file; supports `--force` to overwrite and a configurable output path via `jaga.seeder.path`
+- `jaga.access_levels` cache key — map of `name → access_level` used by the middleware on every request
+
+### Changed
+
+- `JagaMiddleware` access check order updated: `public` bypass → 401 → `auth` bypass → custom policy → permission check → ownership
+- `CacheManager::rememberPublicRoutes()` renamed to `rememberAccessLevels()`; `flushPublicRoutes()` renamed to `flushAccessLevels()`; cache key renamed from `jaga.public_routes` to `jaga.access_levels`
+- `Permission::booted()` pivot-cleanup hook moved into `PermissionObserver::deleting()`; the `booted()` method has been removed from the model
+
+### Removed
+
+- `is_public` boolean column on `permissions` — replaced by `access_level`
+
 ## [1.0.0] - 2026-04-15
 
 ### Added
