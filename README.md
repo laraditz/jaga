@@ -73,7 +73,23 @@ Route::middleware(['auth:sanctum', 'jaga'])->group(function () {
 php artisan jaga:sync
 ```
 
-**4. Assign roles to users:**
+**4. Create roles and assign permissions:**
+
+```php
+use Laraditz\Jaga\Models\Role;
+use Laraditz\Jaga\Models\Permission;
+
+$editor = Role::create(['name' => 'Editor', 'slug' => 'editor', 'guard_name' => 'web']);
+
+// Assign specific permissions
+$editor->assignPermission('posts.index');
+$editor->assignPermission('posts.store');
+
+// Or use a wildcard to cover all posts.* at once
+$editor->assignWildcard('posts.*');
+```
+
+**5. Assign roles to users:**
 
 ```php
 // Single role
@@ -130,6 +146,65 @@ $role->assignWildcard('*');             // covers everything including custom pe
 ```
 
 `jaga:sync` will never soft-delete a custom permission, and `jaga:clean` will never force-delete one — even if it is soft-deleted. They are permanently protected by the `is_custom` flag.
+
+### Roles
+
+Roles are the primary way to group permissions and assign them to users. Create roles directly via Eloquent or in a seeder:
+
+```php
+use Laraditz\Jaga\Models\Role;
+
+$editor = Role::create([
+    'name'       => 'Editor',
+    'slug'       => 'editor',       // used for assignment — $user->assignRole('editor')
+    'guard_name' => 'web',
+]);
+
+$admin = Role::create([
+    'name'       => 'Admin',
+    'slug'       => 'admin',
+    'guard_name' => 'web',
+]);
+```
+
+Assign permissions to a role by name or model:
+
+```php
+// By permission name (resolves from DB)
+$editor->assignPermission('posts.index');
+$editor->assignPermission('posts.show');
+$editor->assignPermission('posts.store');
+
+// By Permission model
+$perm = Permission::where('name', 'posts.update')->first();
+$editor->assignPermission($perm);
+
+// Wildcard — covers all posts.* permissions (including ones added later)
+$admin->assignWildcard('posts.*');
+
+// Global wildcard — covers everything
+$admin->assignWildcard('*');
+```
+
+Assign roles to users:
+
+```php
+// By slug
+$user->assignRole('editor');
+
+// Multiple at once
+$user->assignRole(['editor', 'moderator']);
+
+// Remove a role
+$user->removeRole('editor');
+```
+
+Check access:
+
+```php
+$user->hasRole('editor');           // true/false
+$user->hasPermission('posts.store'); // true if user has it via any role or direct grant
+```
 
 ### Wildcard Permissions
 
