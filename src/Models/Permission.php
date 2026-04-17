@@ -49,6 +49,6 @@ class Permission extends Model
             config('jaga.tables.model_permission'),
             'permission_id',
             'model_id'
-        )->wherePivotNotNull('permission_id');
+        );
     }
 }
