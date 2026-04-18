@@ -420,6 +420,39 @@ The callback receives `($user, $model)` and must return `bool`. It takes priorit
 | `jaga:clear`   | Flush all jaga caches                                                     |
 | `jaga:clean`   | Force-delete soft-deleted route-based permissions and orphaned pivot rows |
 
+### Programmatic Sync
+
+`jaga:sync` delegates to `SyncPermissionsJob`, which you can dispatch from anywhere in your application — not just the CLI.
+
+```php
+use Laraditz\Jaga\Jobs\SyncPermissionsJob;
+
+// Queued (async) — runs on your configured queue worker
+SyncPermissionsJob::dispatch();
+
+// Synchronous — runs inline, blocks until complete
+SyncPermissionsJob::dispatchSync();
+```
+
+After the job completes, it fires a `PermissionsSynced` event carrying the result:
+
+```php
+use Laraditz\Jaga\Events\PermissionsSynced;
+use Illuminate\Support\Facades\Event;
+
+Event::listen(PermissionsSynced::class, function (PermissionsSynced $event) {
+    // $event->newCount        — permissions created
+    // $event->updatedCount    — permissions updated
+    // $event->deprecatedCount — permissions soft-deleted (route removed)
+    // $event->collisions      — custom permission names that clashed with a route
+    Log::info('Permissions synced', [
+        'new'        => $event->newCount,
+        'updated'    => $event->updatedCount,
+        'deprecated' => $event->deprecatedCount,
+    ]);
+});
+```
+
 **Recommended deployment workflow:**
 
 ```bash
