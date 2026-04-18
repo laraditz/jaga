@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-04-18
+
+### Added
+
+- `SyncPermissionsJob` — extracted sync logic from `jaga:sync` into a dispatchable Laravel job; supports `SyncPermissionsJob::dispatch()` (queued) and `SyncPermissionsJob::dispatchSync()` (inline) from anywhere in the application
+- `PermissionsSynced` event — fired after every sync with `$newCount`, `$updatedCount`, `$deprecatedCount`, and `$collisions` properties
+
+### Changed
+
+- `jaga:sync` command now delegates all work to `SyncPermissionsJob` and renders output by listening to the `PermissionsSynced` event; behaviour is unchanged
+
 ## [1.1.0] - 2026-04-16
 
 ### Added
