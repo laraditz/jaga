@@ -8,11 +8,13 @@ class DescriptionGenerator
 {
     private static array $templates = [
         'index' => 'List all :resource',
-        'show' => 'View a :resource',
-        'store' => 'Create a :resource',
+        'show' => 'Display a :resource',
+        'view' => 'View a :resource',
+        'create' => 'Create a :resource',
+        'store' => 'Add a :resource',
         'update' => 'Update a :resource',
-        'destroy' => 'Delete a :resource',
         'edit' => 'Edit :resource',
+        'destroy' => 'Delete a :resource',
     ];
 
     public static function group(string $routeName): ?string
